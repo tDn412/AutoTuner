@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.ObjectModel;
@@ -74,6 +74,13 @@ namespace Universal_x86_Tuning_Utility.ViewModels
                     PageTag = "adaptive",
                     Icon = SymbolRegular.Radar20,
                     PageType = typeof(Views.Pages.Adaptive)
+                },
+                new NavigationItem()
+                {
+                    Content = "AI Tuner",
+                    PageTag = "aituner",
+                    Icon = SymbolRegular.Predictions20,
+                    PageType = typeof(Views.Pages.AITunerPage)
                 },
                 new NavigationItem()
                 {
@@ -163,6 +170,13 @@ namespace Universal_x86_Tuning_Utility.ViewModels
                     PageTag = "adaptive",
                     Icon = SymbolRegular.Radar20,
                     PageType = typeof(Views.Pages.Adaptive)
+                },
+                new NavigationItem()
+                {
+                    Content = "AI Tuner",
+                    PageTag = "aituner",
+                    Icon = SymbolRegular.Predictions20,
+                    PageType = typeof(Views.Pages.AITunerPage)
                 },
                 new NavigationItem()
                 {

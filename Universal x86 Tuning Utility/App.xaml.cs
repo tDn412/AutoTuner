@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -172,6 +172,7 @@ namespace Universal_x86_Tuning_Utility
                         // Views and ViewModels
                         services.AddScoped<Views.Pages.DashboardPage>();
                         services.AddScoped<ViewModels.DashboardViewModel>();
+                        services.AddScoped<Views.Pages.AITunerPage>();
                         services.AddScoped<Views.Pages.CustomPresets>();
                         services.AddScoped<Views.Pages.Premade>();
                         services.AddScoped<Views.Pages.Adaptive>();
