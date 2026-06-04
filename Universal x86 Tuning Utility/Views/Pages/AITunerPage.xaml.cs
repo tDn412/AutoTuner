@@ -159,6 +159,12 @@ namespace Universal_x86_Tuning_Utility.Views.Pages
                 // 1. Áp dụng cấu hình ngay lập tức vào phần cứng
                 await Task.Run(() => RyzenAdj_To_UXTU.Translate(command));
 
+                // 2. Chạy dọn dẹp RAM chuyên sâu nếu chọn chế độ chơi game (Esports hoặc AAA)
+                if (optType == 0 || optType == 1)
+                {
+                    await Task.Run(() => Universal_x86_Tuning_Utility.Scripts.Misc.Garbage.PurgeSystemMemoryAsync());
+                }
+
                 // 2. Lưu cấu hình vào file cài đặt của ứng dụng để tự động nạp lại khi khởi động lại máy!
                 Universal_x86_Tuning_Utility.Properties.Settings.Default.CommandString = command;
                 Universal_x86_Tuning_Utility.Properties.Settings.Default.Save();

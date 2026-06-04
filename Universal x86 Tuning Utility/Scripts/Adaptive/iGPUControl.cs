@@ -1,4 +1,4 @@
-﻿using HidSharp.Utility;
+using HidSharp.Utility;
 using LibreHardwareMonitor.Hardware;
 using System;
 using System.Collections.Generic;
@@ -41,7 +41,7 @@ namespace Universal_x86_Tuning_Utility.Scripts.Adaptive
                 // Remove oldest sample if the window is full
                 if (gpuLoadSamples.Count > WindowSize)
                 {
-                    int oldestSample = gpuLastLoadSamples.Dequeue();
+                    int oldestSample = gpuLoadSamples.Dequeue();
                     averageGpuLoad = ((averageGpuLoad * WindowSize) - oldestSample + _gpuLoad) / WindowSize;
                 }
                 else averageGpuLoad = ((averageGpuLoad * (gpuLoadSamples.Count - 1)) + _gpuLoad) / gpuLoadSamples.Count;

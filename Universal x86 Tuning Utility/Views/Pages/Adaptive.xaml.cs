@@ -1,4 +1,4 @@
-﻿using GameLib.Core;
+using GameLib.Core;
 using GameLib;
 using LibreHardwareMonitor.Hardware;
 using RTSSSharedMemoryNET;
@@ -163,6 +163,12 @@ namespace Universal_x86_Tuning_Utility.Views.Pages
             }
             catch (Exception ex) { }
         }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         [DllImport("user32.dll")]
         static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
@@ -587,48 +593,100 @@ namespace Universal_x86_Tuning_Utility.Views.Pages
         string runningGameName = "Default";
         private void isGameRunning()
         {
-            foreach (GameLauncherItem item in installedGames)
+            try
             {
-                //var gamePath = game.Split("~");
-
-                int i = 0;
-                do
+                // 1. Kiểm tra cửa sổ đang hiển thị ở chế độ active trước (Tối ưu cực hạn O(1))
+                IntPtr activeHwnd = GetForegroundWindow();
+                if (activeHwnd != IntPtr.Zero)
                 {
-                    Process[] processes = Process.GetProcesses();
-
-                    foreach (Process process in processes)
+                    uint activePid;
+                    GetWindowThreadProcessId(activeHwnd, out activePid);
+                    if (activePid > 0)
                     {
                         try
                         {
-                            string executablePath = process.MainModule.FileName;
-                            string executableDirectory = System.IO.Path.GetDirectoryName(executablePath);
-                            string executableName = System.IO.Path.GetFileName(executablePath);
-
-                            if (executablePath.Contains(item.path))
+                            using (Process activeProc = Process.GetProcessById((int)activePid))
                             {
-                                bool autoSwitch = true;
-                                AdaptivePreset preset = adaptivePresetManager.GetPreset(item.gameName);
-                                if (preset != null)
+                                string activePath = activeProc.MainModule.FileName;
+                                foreach (GameLauncherItem item in installedGames)
                                 {
-                                    autoSwitch = preset.isAutoSwitch;
-                                }
-                                if (!autoSwitch)
-                                {
-                                    continue;
-                                }
+                                    if (!string.IsNullOrEmpty(item.path) && activePath.Contains(item.path))
+                                    {
+                                        bool autoSwitch = true;
+                                        AdaptivePreset preset = adaptivePresetManager.GetPreset(item.gameName);
+                                        if (preset != null)
+                                        {
+                                            autoSwitch = preset.isAutoSwitch;
+                                        }
+                                        if (autoSwitch)
+                                        {
+                                            // Tối ưu hóa RAM và Core Pinning khi game bắt đầu chạy
+                                            if (runningGameName != item.gameName)
+                                            {
+                                                Task.Run(() => Garbage.PurgeSystemMemoryAsync());
+                                                ProcessOptimizer.OptimizeProcess(activeProc, true);
+                                            }
 
-                                runningGameName = item.gameName;
-                                return;
+                                            runningGameName = item.gameName;
+                                            return;
+                                        }
+                                    }
+                                }
                             }
                         }
-                        catch (Exception ex)
-                        {
+                        catch { /* Bỏ qua nếu là tiến trình bảo mật */ }
+                    }
+                }
 
+                // 2. Nếu cửa sổ active không phải là game, quét toàn bộ danh sách tiến trình duy nhất 1 lần (O(N))
+                var runningPaths = new Dictionary<string, Process>(StringComparer.OrdinalIgnoreCase);
+                foreach (Process p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        if (p.Id <= 4 || p.ProcessName.Equals("Idle", StringComparison.OrdinalIgnoreCase) || p.ProcessName.Equals("System", StringComparison.OrdinalIgnoreCase) || p.ProcessName.Equals("Registry", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        string path = p.MainModule.FileName;
+                        if (!string.IsNullOrEmpty(path))
+                        {
+                            runningPaths[path] = p;
                         }
                     }
-                    i++;
-                } while (i < 2);
+                    catch { }
+                }
+
+                foreach (GameLauncherItem item in installedGames)
+                {
+                    if (string.IsNullOrEmpty(item.path)) continue;
+
+                    var matchedPath = runningPaths.Keys.FirstOrDefault(k => k.Contains(item.path));
+                    if (matchedPath != null)
+                    {
+                        bool autoSwitch = true;
+                        AdaptivePreset preset = adaptivePresetManager.GetPreset(item.gameName);
+                        if (preset != null)
+                        {
+                            autoSwitch = preset.isAutoSwitch;
+                        }
+                        if (!autoSwitch)
+                        {
+                            continue;
+                        }
+
+                        if (runningGameName != item.gameName)
+                        {
+                            Task.Run(() => Garbage.PurgeSystemMemoryAsync());
+                            ProcessOptimizer.OptimizeProcess(runningPaths[matchedPath], true);
+                        }
+
+                        runningGameName = item.gameName;
+                        return;
+                    }
+                }
             }
+            catch { }
+
             runningGameName = "Default";
         }
 

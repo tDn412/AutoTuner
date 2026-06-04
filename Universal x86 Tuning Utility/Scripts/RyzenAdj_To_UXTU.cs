@@ -1,4 +1,4 @@
-﻿using CpuAffinityUtility;
+using CpuAffinityUtility;
 using GameLib.Plugin.RiotGames.Model;
 using NvAPIWrapper.Display;
 using RyzenSmu;
@@ -69,9 +69,21 @@ namespace Universal_x86_Tuning_Utility.Scripts
                             }
                             else if (ryzenAdjCommandString.Contains("Win-Power"))
                             {
-                                if(ryzenAdjCommandValueString == "0") PowerSetActiveOverlayScheme(new Guid(powerSaverPowerScheme.ToLower()));
-                                else if (ryzenAdjCommandValueString == "1") PowerSetActiveOverlayScheme(new Guid(balancedPowerScheme.ToLower()));
-                                else if (ryzenAdjCommandValueString == "2") PowerSetActiveOverlayScheme(new Guid(highPerformancePowerScheme.ToLower()));
+                                if(ryzenAdjCommandValueString == "0")
+                                {
+                                    PowerSetActiveOverlayScheme(new Guid(powerSaverPowerScheme.ToLower()));
+                                    Universal_x86_Tuning_Utility.Scripts.Misc.RegistryLatencyTweaker.ApplyLatencyTweaks(false);
+                                }
+                                else if (ryzenAdjCommandValueString == "1")
+                                {
+                                    PowerSetActiveOverlayScheme(new Guid(balancedPowerScheme.ToLower()));
+                                    Universal_x86_Tuning_Utility.Scripts.Misc.RegistryLatencyTweaker.ApplyLatencyTweaks(false);
+                                }
+                                else if (ryzenAdjCommandValueString == "2")
+                                {
+                                    PowerSetActiveOverlayScheme(new Guid(highPerformancePowerScheme.ToLower()));
+                                    Universal_x86_Tuning_Utility.Scripts.Misc.RegistryLatencyTweaker.ApplyLatencyTweaks(true);
+                                }
                                 Task.Delay(50);
                             }
                             else if (ryzenAdjCommandString.Contains("ASUS"))

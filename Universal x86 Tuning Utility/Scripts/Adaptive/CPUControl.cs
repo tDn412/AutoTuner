@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Linq;
@@ -22,28 +22,65 @@ namespace Universal_x86_Tuning_Utility.Scripts.Adaptive
         private static int _lastCO = 0; // CO
         public static int _lastUsage = 0;
 
+        // Các biến điều khiển PID và EMA
+        private static double _smoothedTemp = 0.0;
+        private static double _integral = 0;
+        private static double _lastError = 0;
+        private const double Kp = 1.2;  // Proportional gain
+        private const double Ki = 0.02; // Integral gain
+        private const double Kd = 0.4;  // Derivative gain
 
         public static string cpuCommand = "";
         public static string coCommand = "";
         public static async void UpdatePowerLimit(int temperature, int cpuLoad, int MaxPowerLimit, int MinPowerLimit, int MaxTemperature)
         {
             try { 
-            if (temperature >= MaxTemperature - 2)
-            {
-                // Reduce power limit if temperature is too high
-                _newPowerLimit = Math.Max(MinPowerLimit, _newPowerLimit - PowerLimitIncrement);
-            }
-            else if (cpuLoad > 10 && temperature <= (MaxTemperature - 5))
-            {
-                // Increase power limit if temperature allows and CPU load is high
-                _newPowerLimit = Math.Min(MaxPowerLimit, _newPowerLimit + PowerLimitIncrement);
-            }
+                // Khởi tạo giới hạn công suất ban đầu nếu chưa có hoặc không hợp lệ
+                if (_currentPowerLimit <= 0 || _currentPowerLimit > 1000)
+                {
+                    _currentPowerLimit = (MinPowerLimit + MaxPowerLimit) / 2;
+                }
 
-            if (_newPowerLimit < MinPowerLimit) _newPowerLimit = MinPowerLimit;
-            if (_newPowerLimit > MaxPowerLimit) _newPowerLimit = MaxPowerLimit;
+                // 1. Dùng EMA để làm mịn nhiệt độ đầu vào, tránh nhảy xung ảo do gai nhiệt tức thời
+                if (_smoothedTemp <= 0) _smoothedTemp = temperature;
+                else _smoothedTemp = (0.7 * _smoothedTemp) + (0.3 * temperature);
 
-                // Apply new power limit if power limit has changed
-                if (_newPowerLimit <= _lastPowerLimit - 1 || _newPowerLimit >= _lastPowerLimit + 1)
+                // 2. Thuật toán PID
+                double error = MaxTemperature - _smoothedTemp;
+                
+                // Giới hạn tích phân chống windup
+                _integral += error;
+                _integral = Math.Max(-100, Math.Min(100, _integral));
+
+                double derivative = error - _lastError;
+                _lastError = error;
+
+                // Tín hiệu điều chỉnh TDP từ PID
+                double controlOutput = (Kp * error) + (Ki * _integral) + (Kd * derivative);
+
+                int tdpAdjustment = 0;
+                
+                // Nếu nhiệt độ cao quá trần, hạ TDP tỷ lệ thuận với mức vượt ngưỡng trần
+                if (error < 0)
+                {
+                    tdpAdjustment = (int)Math.Floor(controlOutput) - 1; // Giảm nhanh để bảo vệ hệ thống
+                }
+                // Nếu nhiệt độ mát mẻ và CPU đang tải nặng, nâng TDP dần lên trần
+                else if (cpuLoad > 10 && error > 3)
+                {
+                    tdpAdjustment = (int)Math.Ceiling(controlOutput * 0.4); 
+                    if (tdpAdjustment > 4) tdpAdjustment = 4; // Giới hạn bước tăng tối đa mỗi chu kỳ
+                }
+
+                _newPowerLimit = _currentPowerLimit + tdpAdjustment;
+
+                if (_newPowerLimit < MinPowerLimit) _newPowerLimit = MinPowerLimit;
+                if (_newPowerLimit > MaxPowerLimit) _newPowerLimit = MaxPowerLimit;
+
+                _currentPowerLimit = _newPowerLimit;
+
+                // Áp dụng giới hạn công suất mới nếu có sự thay đổi so với lần áp dụng trước
+                if (_newPowerLimit != _lastPowerLimit)
                 {
                     int _TDP = _newPowerLimit;
 
