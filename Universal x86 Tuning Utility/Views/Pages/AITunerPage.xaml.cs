@@ -25,34 +25,45 @@ namespace Universal_x86_Tuning_Utility.Views.Pages
         {
             try
             {
-                // 1. Chuẩn bị giao diện trước khi chạy stress test
+                // 1. Lấy thông số từ ComboBox trên giao diện
+                int durationSeconds = 30;
+                if (CbxDuration.SelectedIndex == 0) durationSeconds = 15;
+                else if (CbxDuration.SelectedIndex == 1) durationSeconds = 30;
+                else if (CbxDuration.SelectedIndex == 2) durationSeconds = 60;
+
+                int optimizationType = CbxOptimizationType.SelectedIndex; // 0: Esports, 1: AAA, 2: Balanced
+
+                // Chuẩn bị giao diện trước khi chạy stress test
                 BtnStartTuning.IsEnabled = false;
                 BtnApplyRec.IsEnabled = false;
+                CbxDuration.IsEnabled = false;
+                CbxOptimizationType.IsEnabled = false;
                 StatusIcon.Symbol = Wpf.Ui.Common.SymbolRegular.Predictions20; // Sử dụng biểu tượng chuẩn của WPF-UI
                 ProgressText.Text = "Đang chạy...";
-                StatusSubText.Text = "Hệ thống đang chạy stress-test 100% công suất CPU trong 15 giây. Máy có thể sẽ rú quạt to hơn.";
+                StatusSubText.Text = $"Hệ thống đang chạy stress-test 100% công suất CPU trong {durationSeconds} giây. Máy có thể sẽ rú quạt to hơn.";
                 
-                // Chạy mô phỏng thanh Progress Bar tăng dần trong 15 giây
+                // Chạy mô phỏng thanh Progress Bar tăng dần trong thời gian durationSeconds
                 BenchmarkProgress.Progress = 0;
+                int stepDelay = (durationSeconds * 1000) / 50; // 50 bước
                 var progressTask = Task.Run(async () =>
                 {
                     for (int i = 0; i <= 100; i += 2)
                     {
-                        await Task.Delay(300); // 300ms * 50 = 15 giây
+                        await Task.Delay(stepDelay);
                         Dispatcher.Invoke(() => BenchmarkProgress.Progress = (double)i / 100.0);
                     }
                 });
 
                 // 2. Gọi tiến trình AI Tuner tính toán ngầm
-                var tunerTask = _tuner.StartSmartBenchmarkAsync(15);
+                var tunerTask = _tuner.StartSmartBenchmarkAsync(durationSeconds, optimizationType);
 
                 // Chờ cả stress test và thanh progress bar chạy xong
                 await Task.WhenAll(progressTask, tunerTask);
                 _lastResult = await tunerTask;
 
                 // 3. Hiển thị kết quả lên giao diện người dùng (UI)
-                TxtBaselineTemp.Text = $"{_lastResult.RecommendedStapm}°C"; // Ví dụ hiển thị
-                TxtPeakTemp.Text = $"{_lastResult.RecommendedTempLimit}°C";
+                TxtBaselineTemp.Text = $"{Math.Round(_lastResult.BaselineTemp, 1)} °C";
+                TxtPeakTemp.Text = $"{Math.Round(_lastResult.PeakTemp, 1)} °C";
                 TxtRiseRate.Text = $"{_lastResult.ThermalDissipationRate} °C/s";
                 TxtThermalGrade.Text = _lastResult.ThermalGrade;
 
@@ -79,6 +90,8 @@ namespace Universal_x86_Tuning_Utility.Views.Pages
             finally
             {
                 BtnStartTuning.IsEnabled = true;
+                CbxDuration.IsEnabled = true;
+                CbxOptimizationType.IsEnabled = true;
             }
         }
 
@@ -101,46 +114,67 @@ namespace Universal_x86_Tuning_Utility.Views.Pages
                                  $"--vrm-current={_lastResult.RecommendedVrmTdc * 1000} " +
                                  $"--vrmmax-current={_lastResult.RecommendedVrmEdc * 1000} ";
 
-                bool isEsports = false;
-                if (TsEsportsMode.IsChecked == true)
+                int optType = CbxOptimizationType.SelectedIndex;
+                string typeDesc = "";
+
+                if (optType == 0) // Esports Mode (Valorant, LOL, CS2)
                 {
-                    isEsports = true;
-                    // Bổ sung các thiết lập tối ưu hóa độ trễ Valorant & Esports theo diễn đàn phần cứng:
-                    // 1. Kích hoạt Windows High Performance Scheme
-                    // 2. Kích hoạt Radeon Anti-Lag để giảm trễ tín hiệu chuột
-                    // 3. Kích hoạt Image Sharpening ở mức 25% để vẽ rõ nét viền nhân vật
-                    // 4. Vô hiệu hóa Chill/Boost để giữ FPS mượt, tránh sụt/giật cục bộ
-                    // 5. Khóa CCD-Affinity vào luồng xử lý chính của nhân sơ cấp để giảm trễ cache
+                    typeDesc = "Game Esports Competitive (Valorant/LOL)";
+                    // Tối ưu độ trễ & trễ cache CPU:
+                    // - Khóa Windows High Performance (2)
+                    // - Bật Radeon Anti-Lag
+                    // - Bật Image Sharpening 25% (Rõ viền nhân vật)
+                    // - Tắt các tính năng trễ (Chill/Boost)
+                    // - Khóa CCD-Affinity về luồng xử lý nhân sơ cấp
                     command += "--Win-Power=2 " +
                                "--ADLX-Lag=0-true --ADLX-Lag=1-true " +
                                "--ADLX-ImageSharp=0-true-25 --ADLX-ImageSharp=1-true-25 " +
                                "--ADLX-Boost=0-false-50 --ADLX-Chill=0-false-0-0-0 --ADLX-Sync=0-false --ADLX-RSR=false-5 " +
                                "--CCD-Affinity=0 ";
                 }
+                else if (optType == 1) // AAA Heavy Games (Wukong, Cyberpunk)
+                {
+                    typeDesc = "Game AAA Đồ họa nặng (Black Myth: Wukong)";
+                    // Tối ưu hóa tối đa cho GPU và ổn định khung hình:
+                    // - Khóa Windows High Performance (2)
+                    // - Bật Radeon Image Sharpening 20% (Hình ảnh AAA nét hơn)
+                    // - Bật Enhanced Sync (Chống xé hình cho game AAA mà không tăng input lag)
+                    // - Tắt Affinity để phân bổ đều cho game AAA ăn luồng rộng
+                    command += "--Win-Power=2 " +
+                               "--ADLX-Lag=0-false --ADLX-Lag=1-false " +
+                               "--ADLX-ImageSharp=0-true-20 --ADLX-ImageSharp=1-true-20 " +
+                               "--ADLX-Boost=0-false-50 --ADLX-Chill=0-false-0-0-0 --ADLX-Sync=0-true --ADLX-RSR=false-5 ";
+                }
+                else // Balanced Mode
+                {
+                    typeDesc = "Cân bằng dùng hàng ngày (Tiết kiệm điện & Êm ái)";
+                    // - Khóa Windows Balanced (1)
+                    // - Tắt tối ưu hóa game để giảm hao pin
+                    command += "--Win-Power=1 " +
+                               "--ADLX-Lag=0-false --ADLX-Lag=1-false " +
+                               "--ADLX-ImageSharp=0-false-10 --ADLX-ImageSharp=1-false-10 " +
+                               "--ADLX-Sync=0-false ";
+                }
 
+                // 1. Áp dụng cấu hình ngay lập tức vào phần cứng
                 await Task.Run(() => RyzenAdj_To_UXTU.Translate(command));
 
-                string message = $"Đã áp dụng cấu hình tối ưu của CHUYÊN GIA phần cứng thành công:\n\n" +
+                // 2. Lưu cấu hình vào file cài đặt của ứng dụng để tự động nạp lại khi khởi động lại máy!
+                Universal_x86_Tuning_Utility.Properties.Settings.Default.CommandString = command;
+                Universal_x86_Tuning_Utility.Properties.Settings.Default.Save();
+
+                string message = $"Đã áp dụng và lưu cấu hình tối ưu của CHUYÊN GIA phần cứng thành công:\n\n" +
+                                 $"🎮 Chế độ tối ưu: {typeDesc}\n" +
                                  $"🔹 TDP Limits: {_lastResult.RecommendedStapm}W (Sustained) / {_lastResult.RecommendedSlow}W (Slow) / {_lastResult.RecommendedFast}W (Fast)\n" +
                                  $"🔹 Temp Ceiling: {_lastResult.RecommendedTempLimit}°C\n" +
                                  $"🔹 Curve Optimizer (Undervolt): All Cores {_lastResult.RecommendedCo}\n" +
                                  $"🔹 iGPU Radeon Boost Clock: {_lastResult.RecommendedGfxClk}MHz\n" +
-                                 $"🔹 VRM current (TDC / EDC): {_lastResult.RecommendedVrmTdc}A / {_lastResult.RecommendedVrmEdc}A\n\n";
-
-                if (isEsports)
-                {
-                    message += "🔥 ĐÃ KÍCH HOẠT CHẾ ĐỘ VALORANT & COMPETITIVE ESPORTS:\n" +
-                               "✔️ Bật Anti-Lag & độ sắc nét Driver 25%\n" +
-                               "✔️ Khóa nguồn Windows High Performance\n" +
-                               "✔️ Vô hiệu hóa tính năng trễ (Chill/Boost)\n" +
-                               "✔️ Khóa Affinity luồng xử lý chính\n\n";
-                }
-
-                message += "Hệ thống phần cứng của bạn đã được tối ưu hóa toàn diện!";
+                                 $"🔹 VRM current (TDC / EDC): {_lastResult.RecommendedVrmTdc}A / {_lastResult.RecommendedVrmEdc}A\n\n" +
+                                 $"📌 Cấu hình này đã được lưu vào hệ thống của UXTU. Nếu bạn bật chế độ 'Start on System Boot' và 'Reapply on Start' trong Settings, cấu hình này sẽ tự động nạp lại khi bạn khởi động lại máy mà không cần chạy lại Auto-Tuner!";
 
                 MessageBox.Show(
                     message, 
-                    isEsports ? "AI Esports Tuning Thành Công" : "AI Hardware Auto-Tuning Thành Công", 
+                    "AI Tuning Áp Dụng & Lưu Thành Công", 
                     MessageBoxButton.OK, 
                     MessageBoxImage.Information
                 );
@@ -156,8 +190,10 @@ namespace Universal_x86_Tuning_Utility.Views.Pages
             BenchmarkProgress.Progress = 0;
             StatusIcon.Symbol = Wpf.Ui.Common.SymbolRegular.Predictions20;
             ProgressText.Text = "Sẵn sàng";
-            StatusSubText.Text = "Nhấn nút bắt đầu để chạy Stress-Test 15 giây.";
+            StatusSubText.Text = "Nhấn nút bắt đầu để chạy Stress-Test.";
             BtnApplyRec.IsEnabled = false;
+            CbxDuration.IsEnabled = true;
+            CbxOptimizationType.IsEnabled = true;
         }
     }
 }

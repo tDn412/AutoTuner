@@ -52,11 +52,25 @@
                     </Grid>
 
                     <TextBlock x:Name="StatusSubText" 
-                               Text="Nhấn nút bắt đầu để chạy Stress-Test 15 giây." 
+                               Text="Hệ thống sẽ chạy stress-test để đo lường đặc tính nhiệt." 
                                TextAlignment="Center" 
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}" 
-                               Margin="0,0,0,24"/>
+                               Margin="0,0,0,16"/>
+
+                    <TextBlock Text="Thời gian kiểm thử (Stress-Test):" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6" HorizontalAlignment="Left"/>
+                    <ComboBox x:Name="CbxDuration" Width="280" Margin="0,0,0,12" SelectedIndex="1">
+                        <ComboBoxItem Content="15 giây (Kiểm tra nhanh)"/>
+                        <ComboBoxItem Content="30 giây (Đề xuất ổn định)"/>
+                        <ComboBoxItem Content="60 giây (Chính xác cấp chuyên gia)"/>
+                    </ComboBox>
+
+                    <TextBlock Text="Mục tiêu tối ưu hóa hiệu năng:" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6" HorizontalAlignment="Left"/>
+                    <ComboBox x:Name="CbxOptimizationType" Width="280" Margin="0,0,0,20" SelectedIndex="0">
+                        <ComboBoxItem Content="Esports competitive (Valorant, LOL, CS2)"/>
+                        <ComboBoxItem Content="AAA Heavy Games (Wukong, Cyberpunk)"/>
+                        <ComboBoxItem Content="Cân bằng (Dùng hàng ngày, Êm ái)"/>
+                    </ComboBox>
 
                     <!-- Nút bắt đầu thiết kế rực rỡ -->
                     <ui:Button x:Name="BtnStartTuning" 
@@ -65,29 +79,9 @@
                                FontSize="16" 
                                FontWeight="Bold"
                                Padding="16,12" 
-                               Width="240"
+                               Width="280"
                                Appearance="Primary"
                                Click="BtnStartTuning_Click"/>
-
-                    <!-- Thẻ Chế độ Esports bổ sung -->
-                    <Border Height="1" Background="{DynamicResource CardStrokeColorDefaultBrush}" Margin="0,20,0,20" Width="260"/>
-                    <ui:Card Margin="0,0,0,0" Padding="12" Width="280" HorizontalAlignment="Center">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
-                                <TextBlock Text="Tối ưu Esports (Valorant, LOL)" FontSize="13" FontWeight="SemiBold"/>
-                                <TextBlock Text="Bật Anti-Lag, mượt hình, hạ trễ chuột tối đa." 
-                                           FontSize="10.5" 
-                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" 
-                                           TextWrapping="Wrap"
-                                           Margin="0,2,0,0"/>
-                            </StackPanel>
-                            <ui:ToggleSwitch x:Name="TsEsportsMode" Grid.Column="1" VerticalAlignment="Center" IsChecked="True"/>
-                        </Grid>
-                    </ui:Card>
                 </StackPanel>
             </ui:Card>
 
