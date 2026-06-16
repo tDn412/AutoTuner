@@ -1,4 +1,4 @@
-﻿using Accord.Math.Distances;
+using Accord.Math.Distances;
 using DuoVia.FuzzyStrings;
 using GameLib.Plugin.RiotGames.Model;
 using Gma.System.MouseKeyHook;
@@ -128,17 +128,24 @@ namespace Universal_x86_Tuning_Utility.Views.Windows
                     }
                     else
                     {
-                        if (Settings.Default.dcCommandString != null && Settings.Default.dcCommandString != "")
+                        string dcCommand = Settings.Default.dcCommandString;
+                        if (Settings.Default.dcPreset == "None" || string.IsNullOrEmpty(dcCommand))
                         {
-                            Settings.Default.CommandString = Settings.Default.dcCommandString;
-                            Settings.Default.Save();
-                            await Task.Run(() => RyzenAdj_To_UXTU.Translate(Settings.Default.dcCommandString));
-                            ToastNotification.ShowToastNotification("Discharge Preset Applied!", $"Your discharge preset settings have been applied!");
+                            // Khởi động bằng pin mà không có DC preset -> Reset undervolt và gfx-clk về stock để tránh BSOD
+                            dcCommand = "--set-coall=0 --gfx-clk=0 ";
+                            await Task.Run(() => RyzenAdj_To_UXTU.Translate(dcCommand));
+                            ToastNotification.ShowToastNotification("Battery Safe Mode Applied!", "CPU undervolting and GPU pinning have been disabled to ensure stability on battery.");
                         }
                         else
                         {
-                            await Task.Run(() => RyzenAdj_To_UXTU.Translate(Settings.Default.CommandString));
-                            ToastNotification.ShowToastNotification("Settings Reapplied!", $"Your last applied settings have been reapplied!");
+                            // Đảm bảo tắt undervolt và gfx-clk nếu profile DC tự chọn không khai báo chúng
+                            if (!dcCommand.Contains("set-coall")) dcCommand += "--set-coall=0 ";
+                            if (!dcCommand.Contains("gfx-clk")) dcCommand += "--gfx-clk=0 ";
+
+                            Settings.Default.CommandString = dcCommand;
+                            Settings.Default.Save();
+                            await Task.Run(() => RyzenAdj_To_UXTU.Translate(dcCommand));
+                            ToastNotification.ShowToastNotification("Discharge Preset Applied!", "Your discharge preset settings have been applied!");
                         }
                     }
                 }
@@ -417,35 +424,45 @@ namespace Universal_x86_Tuning_Utility.Views.Windows
                         }
                         else
                         {
-                            if (Settings.Default.dcCommandString != null && Settings.Default.dcCommandString != "" && Settings.Default.dcPreset != "None")
+                            string dcCommand = Settings.Default.dcCommandString;
+                            if (Settings.Default.dcPreset == "None" || string.IsNullOrEmpty(dcCommand))
+                            {
+                                // Khi rút sạc ra mà không có DC preset -> Reset undervolt và gfx-clk về stock để tránh sập
+                                dcCommand = "--set-coall=0 --gfx-clk=0 ";
+                            }
+                            else
                             {
                                 if (Settings.Default.dcPreset.Contains("PM - Eco"))
                                 {
                                     Settings.Default.premadePreset = 0;
-                                    Settings.Default.dcCommandString = PremadePresets.EcoPreset;
+                                    dcCommand = PremadePresets.EcoPreset;
                                 }
                                 else if (Settings.Default.dcPreset.Contains("PM - Bal"))
                                 {
                                     Settings.Default.premadePreset = 1;
-                                    Settings.Default.dcCommandString = PremadePresets.BalPreset;
+                                    dcCommand = PremadePresets.BalPreset;
                                 }
                                 else if (Settings.Default.dcPreset.Contains("PM - Perf"))
                                 {
                                     Settings.Default.premadePreset = 2;
-                                    Settings.Default.dcCommandString = PremadePresets.PerformancePreset;
+                                    dcCommand = PremadePresets.PerformancePreset;
                                 }
                                 else if (Settings.Default.dcPreset.Contains("PM - Ext"))
                                 {
                                     Settings.Default.premadePreset = 3;
-                                    Settings.Default.dcCommandString = PremadePresets.ExtremePreset;
+                                    dcCommand = PremadePresets.ExtremePreset;
                                 }
-                                Settings.Default.CommandString = Settings.Default.dcCommandString;
-                                Settings.Default.Save();
-                                await Task.Run(() => RyzenAdj_To_UXTU.Translate(Settings.Default.dcCommandString));
 
-                                if (lastAppliedState != "dc") ToastNotification.ShowToastNotification("Discharge Preset Applied!", $"Your discharge preset settings have been applied!");
-                                lastAppliedState = "dc";
+                                if (!dcCommand.Contains("set-coall")) dcCommand += "--set-coall=0 ";
+                                if (!dcCommand.Contains("gfx-clk")) dcCommand += "--gfx-clk=0 ";
                             }
+
+                            Settings.Default.CommandString = dcCommand;
+                            Settings.Default.Save();
+                            await Task.Run(() => RyzenAdj_To_UXTU.Translate(dcCommand));
+
+                            if (lastAppliedState != "dc") ToastNotification.ShowToastNotification("Discharge Preset Applied!", "Your battery safe settings have been applied!");
+                            lastAppliedState = "dc";
                         }
                     }
 
